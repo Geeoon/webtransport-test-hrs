@@ -51,12 +51,12 @@ function bufferPartitioner(buffer, max) {
  */
 function bufferArrayConcat(array) {
   // make sure to replace 1200 with an actual variable from either the buffers a global const
-  let fake_buffer = new Array(array[0]["0"] * (1200 - 3));
+  let fake_buffer = new Array(array[0]["0"] * (1200 - 2));
   for (let element of array) {
     let index = element["1"];
     let data = element.subarray(2);
-    fake_buffer.splice(index * (1200 - 3), 0, ...data);
-    fake_buffer = fake_buffer.splice(0, (index + 1) * (1200 - 3));
+    fake_buffer.splice(index * (1200 - 2), 0, ...data);
+    fake_buffer = fake_buffer.splice(0, (index + 1) * (1200 - 2));
   }
   return new Uint8Array(fake_buffer);
 }
@@ -70,6 +70,7 @@ function App() {
   const [sending_data, set_sending_data] = useState(null);
   const [reader, set_reader] = useState(false);
   const [writer, set_writer] = useState(false);
+  const [image_buffer, set_image_buffer] = useState(false);
   const transport = useMemo(async () => {
     let wt = new WebTransport('https://usa.echo.webtransport.day');
     set_reader(wt.datagrams.readable.getReader());
@@ -82,7 +83,7 @@ function App() {
     async function begin() {
       // file: https://cdn.theatlantic.com/media/mt/science/cool-space-picture-5.jpg
 
-      // receiving datagram, should equal whats sent
+      // receiving datagram, should be similar to whats sent
       let finished = false;
       let array = [];
       while (!finished) {
@@ -90,9 +91,9 @@ function App() {
         const {value, done} = await reader.read();
         set_data(value);
         array.push(value);
-        console.log(bufferArrayConcat(array));
-        // console.log(value, done);
+        set_image_buffer(bufferArrayConcat(array));
         finished = done;
+        console.log(array, bufferArrayConcat(array));
       }
     }
     if (transport) {
@@ -121,6 +122,7 @@ function App() {
         set_sending_data(new Uint8Array(await e.target.files[0].arrayBuffer()));
 		  }} />
       Received Data: { JSON.stringify(data) }
+      <img alt="image received" src={ URL.createObjectURL(new Blob([image_buffer.buffer], { type: 'image/jpeg' }))}/>
     </div>
   );
 }
