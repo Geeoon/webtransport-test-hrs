@@ -10,6 +10,7 @@ let number = 0;
  *  1st buffer array size
  *  2nd current buffer index
  *  3rd current message id, all messages should have the same id for the same picture
+ *  4th and 5th are size, as such 4th * 255 + 5th;
  * Parameters:
  *  buffer - buffer that should be partitioned
  *  max - the maximum of the buffer
@@ -25,15 +26,31 @@ function bufferPartitioner(buffer, max) { // theorhetical max 306000 bytes or 30
     number = 0;
   }
   for (let i = 0; i < size; i++) {
-    let sub_buffer = buffer.subarray(i * (buffer_size - 3), (i+1) * (buffer_size - 3));
+    let sub_buffer = buffer.subarray(i * (buffer_size - 5), (i+1) * (buffer_size - 5));
     let new_buffer = new Uint8Array(buffer_size);  // max is 1218
     new_buffer["0"] = size;
     new_buffer["1"] = i;
     new_buffer["2"] = number;
-    new_buffer.set(sub_buffer, 3);
+    new_buffer["3"] = Math.floor(buffer.length / 256);
+    new_buffer["4"] = buffer.length % 256;
+    new_buffer.set(sub_buffer, 5);
     output.push(new_buffer);
   }
   return output;
+}
+
+function equal (buf1, buf2) {
+    if (buf1.byteLength != buf2.byteLength) return false;
+    var dv1 = new Int8Array(buf1);
+    var dv2 = new Int8Array(buf2);
+    for (var i = 0 ; i != buf1.byteLength ; i++)
+    {
+      if (dv1[i] != dv2[i]) {
+        console.log(i);
+        return false;
+      }
+    }
+    return true;
 }
 
 /**
@@ -42,17 +59,20 @@ function bufferPartitioner(buffer, max) { // theorhetical max 306000 bytes or 30
  *  1st buffer array size
  *  2nd current buffer index
  *  3rd current message id, all messages should have the same id for the same picture
+ *  4th and 5th are size, as such 4th * 255 + 5th;
  * Parameters:
  *  array - the array of buffers to be concatonated
  */
 function bufferArrayConcat(array, size) {
-  // make sure to replace 1200 with an actual variable from either the buffers a global const
-  let fake_buffer = new Array(array[0]["0"] * (size - 3));
+  let max_length = array[0]["3"] * (256) + array[0]["4"];
+  let fake_buffer = new Array(max_length);
   for (let element of array) {
     let index = element["1"];
-    let data = element.subarray(3);
-    fake_buffer.splice(index * (size - 3), 0, ...data);
-    fake_buffer = fake_buffer.splice(0, (index + 1) * (size - 3));
+    let data = element.subarray(5);
+    fake_buffer.splice(index * (size - 5), data.byteLength, ...data);
+  }
+  if (fake_buffer.length > max_length) {
+    fake_buffer = fake_buffer.slice(0, max_length);
   }
   return new Uint8Array(fake_buffer);
 }
@@ -96,14 +116,9 @@ function App() {
           if (array.length > 0) {
             set_image_buffer(bufferArrayConcat(array, transport.datagrams.maxDatagramSize - 60));
           }
-          array.length = 0;
           id = value["2"];
         }
-        array.push(value);
-        if ((value["0"] - 1) === value["1"]) {  // if last message, you can display instantly
-          set_image_buffer(bufferArrayConcat(array, transport.datagrams.maxDatagramSize - 60));
-          array.length = 0;
-        }
+        array.splice(value["1"], 1, value);
         finished = done;
       }
     }
@@ -133,11 +148,18 @@ function App() {
     return () => clearTimeout(id);
   }, [sending_data, writer, transport]);
 
+  useEffect(() => {  // check equivolence
+    if (image_buffer && sending_data) {
+      //console.log("Equal?: ", equal(image_buffer, sending_data));
+    }
+  }, [image_buffer, sending_data]);
+
   return (
     <div>
       Image: <input type="file" id="img" accept="image/png, image/jpeg, image/bmp, image/img" onChange={ async (e) => {
         if (!e.target.files[0]) return;
         set_sending_data(new Uint8Array(await e.target.files[0].arrayBuffer()));
+        // set_image_buffer(new Uint8Array(await e.target.files[0].arrayBuffer()));
 		  }} /><br />
       <img alt="data received" src={ image_buffer && URL.createObjectURL(new Blob([image_buffer.buffer], { type: 'image/bmp' }))}/>
     </div>
