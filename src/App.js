@@ -17,7 +17,7 @@ let number = 0;
  * Returns:
  *  array - an array of buffers containing the proper syntax
  */
-function bufferPartitioner(buffer, max) { // theorhetical max 306000 bytes or 306kb
+function bufferPartitioner(buffer, max) { // theoreitcal max of 64k
   let output = [];
   const buffer_size = max;
   let size = Math.ceil(buffer.length / buffer_size);
