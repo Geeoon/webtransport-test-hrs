@@ -3,17 +3,6 @@ import logo from './logo.svg';
 import './App.css';
 import React, { useEffect, useMemo, useState } from 'react';
 
-/*
-const input = document.createElement("input");
-input.type = "file";
-document.body.append(input);
-input.addEventListener("change", async event => {
-    const ab = await input.files[0].arrayBuffer();
-    const ui8a = new Uint8Array(ab);
-    console.log("Uint8Array", ui8a);
-});
-*/
-
 /**
  * This function turns a buffer into an array of different buffers of specified size
  * Format:
@@ -25,7 +14,7 @@ input.addEventListener("change", async event => {
  * Returns:
  *  array - an array of buffers containing the proper syntax
  */
-function bufferPartitioner(buffer, max) {
+function bufferPartitioner(buffer, max) { // theorhetical max 306000 bytes or 306kb
   let output = [];
   const buffer_size = max;
   let size = Math.ceil(buffer.length / buffer_size);
