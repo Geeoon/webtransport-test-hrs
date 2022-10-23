@@ -1,5 +1,4 @@
 /* eslint-disable no-undef */
-import logo from './logo.svg';
 import './App.css';
 import React, { useEffect, useMemo, useState } from 'react';
 
@@ -62,7 +61,8 @@ function App() {
   const [sending_data, set_sending_data] = useState(null);
   const [reader, set_reader] = useState(false);
   const [writer, set_writer] = useState(false);
-  const [image_buffer, set_image_buffer] = useState(false);
+  const [image_buffer, set_image_buffer] = useState(null);
+  const [old_image, set_old_image] = useState(null);
   const transport = useMemo(async () => {
     let wt = new WebTransport('https://usa.echo.webtransport.day');
     set_reader(wt.datagrams.readable.getReader());
@@ -84,13 +84,14 @@ function App() {
         const {value, done} = await reader.read();
         set_data(value);
         if (value["2"] !== id) {
+          if (array.length > 0) {
+            set_old_image(bufferArrayConcat(array));
+          }
           array.length = 0;
           id = value["2"];
         }
         array.push(value);
-        set_image_buffer(bufferArrayConcat(array));
         finished = done;
-        console.log(array, bufferArrayConcat(array));
       }
     }
     if (transport) {
@@ -102,10 +103,12 @@ function App() {
     async function begin() {
       // sending to echo server
       // max write size 1218
-      let data_array = bufferPartitioner(sending_data, 1200);
-      for (let data of data_array) {
-        await writer.ready;
-        await writer.write(data);
+      while (true) {
+        let data_array = bufferPartitioner(sending_data, 1200);
+        for (let data of data_array) {
+          await writer.ready;
+          await writer.write(data);
+        }
       }
     }
     if (sending_data) {
@@ -116,10 +119,11 @@ function App() {
   return (
     <div>
       Image: <input type="file" id="img" accept="image/png, image/jpeg" onChange={ async (e) => {
+        if (!e.target.files[0]) return;
         set_sending_data(new Uint8Array(await e.target.files[0].arrayBuffer()));
 		  }} />
       Received Data: { JSON.stringify(data) }<br />
-      <img alt="data received" src={ URL.createObjectURL(new Blob([image_buffer.buffer], { type: 'image/jpeg' }))}/>
+      <img alt="data received" src={ old_image && URL.createObjectURL(new Blob([old_image.buffer], { type: 'image/jpeg' }))}/>
     </div>
   );
 }
