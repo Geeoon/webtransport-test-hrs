@@ -8,6 +8,7 @@ import React, { useEffect, useMemo, useState } from 'react';
  * Format:
  *  1st buffer array size
  *  2nd current buffer index
+ *  3rd current message id, all messages should have the same id for the same picture
  * Parameters:
  *  buffer - buffer that should be partitioned
  *  max - the maximum of the buffer
@@ -18,13 +19,14 @@ function bufferPartitioner(buffer, max) { // theorhetical max 306000 bytes or 30
   let output = [];
   const buffer_size = max;
   let size = Math.ceil(buffer.length / buffer_size);
-
+  let id = Math.floor(Math.random() * 256);
   for (let i = 0; i < size; i++) {
-    let sub_buffer = buffer.subarray(i * (buffer_size - 2), (i+1) * (buffer_size - 2));
+    let sub_buffer = buffer.subarray(i * (buffer_size - 3), (i+1) * (buffer_size - 3));
     let new_buffer = new Uint8Array(buffer_size);  // max is 1218
     new_buffer["0"] = size;
     new_buffer["1"] = i;
-    new_buffer.set(sub_buffer, 2);
+    new_buffer["2"] = id;
+    new_buffer.set(sub_buffer, 3);
     output.push(new_buffer);
   }
   return output;
@@ -35,17 +37,18 @@ function bufferPartitioner(buffer, max) { // theorhetical max 306000 bytes or 30
  * Format:
  *  1st buffer array size
  *  2nd current buffer index
+ *  3rd current message id, all messages should have the same id for the same picture
  * Parameters:
  *  array - the array of buffers to be concatonated
  */
 function bufferArrayConcat(array) {
   // make sure to replace 1200 with an actual variable from either the buffers a global const
-  let fake_buffer = new Array(array[0]["0"] * (1200 - 2));
+  let fake_buffer = new Array(array[0]["0"] * (1200 - 3));
   for (let element of array) {
     let index = element["1"];
-    let data = element.subarray(2);
-    fake_buffer.splice(index * (1200 - 2), 0, ...data);
-    fake_buffer = fake_buffer.splice(0, (index + 1) * (1200 - 2));
+    let data = element.subarray(3);
+    fake_buffer.splice(index * (1200 - 3), 0, ...data);
+    fake_buffer = fake_buffer.splice(0, (index + 1) * (1200 - 3));
   }
   return new Uint8Array(fake_buffer);
 }
@@ -74,11 +77,16 @@ function App() {
 
       // receiving datagram, should be similar to whats sent
       let finished = false;
+      let id = 0;
       let array = [];
       while (!finished) {
         await reader.ready;
         const {value, done} = await reader.read();
         set_data(value);
+        if (value["2"] !== id) {
+          array.length = 0;
+          id = value["2"];
+        }
         array.push(value);
         set_image_buffer(bufferArrayConcat(array));
         finished = done;
@@ -110,8 +118,8 @@ function App() {
       Image: <input type="file" id="img" accept="image/png, image/jpeg" onChange={ async (e) => {
         set_sending_data(new Uint8Array(await e.target.files[0].arrayBuffer()));
 		  }} />
-      Received Data: { JSON.stringify(data) }
-      <img alt="image received" src={ URL.createObjectURL(new Blob([image_buffer.buffer], { type: 'image/jpeg' }))}/>
+      Received Data: { JSON.stringify(data) }<br />
+      <img alt="data received" src={ URL.createObjectURL(new Blob([image_buffer.buffer], { type: 'image/jpeg' }))}/>
     </div>
   );
 }
