@@ -1,6 +1,6 @@
 /* eslint-disable no-undef */
 import './App.css';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 const FPS = 20;
 let number = 0;
