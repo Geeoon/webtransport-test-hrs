@@ -10,7 +10,7 @@ let number = 0;
  *  1st buffer array size
  *  2nd current buffer index
  *  3rd current message id, all messages should have the same id for the same picture
- *  4th and 5th are size, as such 4th * 255 + 5th;
+ *  4th and 5th are size, as such 4th * 256 + 5th;
  * Parameters:
  *  buffer - buffer that should be partitioned
  *  max - the maximum of the buffer
@@ -59,7 +59,7 @@ function equal (buf1, buf2) {
  *  1st buffer array size
  *  2nd current buffer index
  *  3rd current message id, all messages should have the same id for the same picture
- *  4th and 5th are size, as such 4th * 255 + 5th;
+ *  4th and 5th are size, as such 4th * 256 + 5th;
  * Parameters:
  *  array - the array of buffers to be concatonated
  */
