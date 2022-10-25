@@ -12,8 +12,7 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "start:browser": "open -n -a /Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome --args --user-data-dir='/tmp/chrome_dev_test' --experimental-web-platform-features",
+    "start": "react-scripts start --work",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"

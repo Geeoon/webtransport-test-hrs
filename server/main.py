@@ -219,6 +219,7 @@ if __name__ == '__main__':
             create_protocol=WebTransportProtocol,
         ))
     try:
+        print("Listening on https://{}:{}".format(BIND_ADDRESS, BIND_PORT))
         logging.info(
             "Listening on https://{}:{}".format(BIND_ADDRESS, BIND_PORT))
         loop.run_forever()
