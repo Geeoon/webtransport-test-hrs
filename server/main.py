@@ -90,7 +90,6 @@ from aioquic.quic.events import ProtocolNegotiated, StreamReset, QuicEvent
 
 BIND_ADDRESS = '::1'
 BIND_PORT = 4433
-packet_num = 0;
 logger = logging.getLogger(__name__)
 
 def bufferPartitioner(buffer, max):
@@ -100,7 +99,7 @@ def bufferPartitioner(buffer, max):
     if (packet_num > 255):
         packet_num = 0
     for i in range(size):
-        sub_buffer
+        sub_buffer = []
 """
 function bufferPartitioner(buffer, max) { // theoreitcal max of 64k
   let output = [];
@@ -147,16 +146,24 @@ class CounterHandler:
         self._session_id = session_id
         self._http = http
         self._counters = defaultdict(int)
+        self._packetNum = 0
+
 
     def h3_event_received(self, event: H3Event) -> None:
         if isinstance(event, DatagramReceived):
-            self._http.send_datagram(self._session_id, event.data)
+            if (event.data == bytes(100)):
+                self._http.send_datagram(self._session_id, bytes(200))
+            else:
+                self._http.send_datagram(self._session_id, bytes(300))
 
     def stream_closed(self, stream_id: int) -> None:
         try:
             del self._counters[stream_id]
         except KeyError:
             pass
+
+    def loop(event) -> None:
+        pass
 
 
 # WebTransportProtocol handles the beginning of a WebTransport connection: it
@@ -201,6 +208,7 @@ class WebTransportProtocol(QuicConnectionProtocol):
         assert(self._handler is None)
         self._handler = CounterHandler(stream_id, self._http)
         self._send_response(stream_id, 200)
+
 
     def _send_response(self,
                        stream_id: int,

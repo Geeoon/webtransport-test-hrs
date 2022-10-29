@@ -1,6 +1,6 @@
 /* eslint-disable no-undef */
 import './App.css';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 
 const FPS = 20;
 let number = 0;
@@ -84,11 +84,17 @@ const sleep = ms => new Promise(
 function App() {
   const [data, set_data] = useState(null);
   const [sending_data, set_sending_data] = useState(null);
+  const [ready, set_ready] = useState(false);
   const [reader, set_reader] = useState(false);
   const [writer, set_writer] = useState(false);
   const [image_buffer, set_image_buffer] = useState(null);
   const [transport, set_transport] = useState(null);
-
+  const start_video_stream = useCallback(async () => {
+    let buffer = new ArrayBuffer(1);
+    buffer["0"] = 100;
+    await writer.ready;
+    await writer.write(buffer);
+  }, [writer]);
   useEffect(() => {
     async function begin() {
       let wt = new WebTransport('https://localhost:4433/');
@@ -96,6 +102,8 @@ function App() {
       set_writer(wt.datagrams.writable.getWriter());
       await wt.ready;
       set_transport(wt);  // echo server
+      console.log("Connected to server.");
+      set_ready(true);
     }
     begin();
   }, []);
@@ -112,6 +120,7 @@ function App() {
         await reader.ready;
         const {value, done} = await reader.read();
         set_data(value);
+        console.log(value);
         if (value["2"] > id || id - value["2"] > 100) {  // if a new image is being received, display the old
           if (array.length > 0) {
             set_image_buffer(bufferArrayConcat(array, transport.datagrams.maxDatagramSize - 60));
@@ -136,7 +145,7 @@ function App() {
         await writer.ready;
         await writer.write(data);
       }
-      console.log("sent image");
+      // console.log("sent image");
     }
     /* if (sending_data) {
       begin();
@@ -156,12 +165,18 @@ function App() {
 
   return (
     <div>
-      Image: <input type="file" id="img" accept="image/png, image/jpeg, image/bmp, image/img" onChange={ async (e) => {
-        if (!e.target.files[0]) return;
-        set_sending_data(new Uint8Array(await e.target.files[0].arrayBuffer()));
-        // set_image_buffer(new Uint8Array(await e.target.files[0].arrayBuffer()));
-		  }} /><br />
-      <img alt="data received" src={ image_buffer && URL.createObjectURL(new Blob([image_buffer.buffer], { type: 'image/bmp' }))}/>
+    {/*
+    Image: <input type="file" id="img" accept="image/png, image/jpeg, image/bmp, image/img" onChange={ async (e) => {
+      if (!e.target.files[0]) return;
+      set_sending_data(new Uint8Array(await e.target.files[0].arrayBuffer()));
+      // set_image_buffer(new Uint8Array(await e.target.files[0].arrayBuffer()));
+    }} /><br />
+    */}
+    { ready &&
+    <>
+      Start video stream: <button onClick={start_video_stream}>Start!</button><br />
+    </>}
+      <img alt="Data from server concatonized" src={ image_buffer && URL.createObjectURL(new Blob([image_buffer.buffer], { type: 'image/bmp' }))}/>
     </div>
   );
 }
