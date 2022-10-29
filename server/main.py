@@ -80,6 +80,9 @@ import logging
 from collections import defaultdict
 import math
 from typing import Dict, Optional
+import numpy as np
+import threading
+import time
 
 from aioquic.asyncio import QuicConnectionProtocol, serve
 from aioquic.h3.connection import H3_ALPN, H3Connection
@@ -90,6 +93,8 @@ from aioquic.quic.events import ProtocolNegotiated, StreamReset, QuicEvent
 
 BIND_ADDRESS = '::1'
 BIND_PORT = 4433
+START_STREAM = 100
+MAX_FPS = 30
 logger = logging.getLogger(__name__)
 
 def bufferPartitioner(buffer, max):
@@ -131,6 +136,22 @@ for (let data of data_array) {
 console.log("sent image");
 """
 
+class video_stream(threading.Thread):
+    def __init__(self, session_id, http: H3Connection, protocol: QuicConnectionProtocol):
+        threading.Thread.__init__(self)
+        self._session_id = session_id
+        self._http = http
+        self._protocol = protocol
+        self._counter = 0
+
+    def run(self):
+        while True:
+            self._counter += 1
+            if (self._counter > 255):
+                self._counter = 0
+            self._http.send_datagram(self._session_id, self._counter.to_bytes(1, 'big'))
+            self._protocol.transmit()
+            time.sleep(1 / MAX_FPS)
 
 # CounterHandler implements a really simple protocol:
 #   - For every incoming bidirectional stream, it counts bytes it receives on
@@ -142,19 +163,23 @@ console.log("sent image");
 #   - For every incoming datagram, it sends a datagram with the length of
 #     datagram that was just received.
 class CounterHandler:
-    def __init__(self, session_id, http: H3Connection) -> None:
+    def __init__(self, session_id, http: H3Connection, protocol: QuicConnectionProtocol) -> None:
         self._session_id = session_id
         self._http = http
         self._counters = defaultdict(int)
         self._packetNum = 0
+        self._stream_thread = video_stream(session_id, http, protocol)
 
 
     def h3_event_received(self, event: H3Event) -> None:
         if isinstance(event, DatagramReceived):
-            if (event.data == bytes(100)):
-                self._http.send_datagram(self._session_id, bytes(200))
+            output = 20
+            if (event.data == START_STREAM.to_bytes(1, 'big') and (not self._stream_thread.is_alive())):
+                self._stream_thread.start()
+
             else:
-                self._http.send_datagram(self._session_id, bytes(300))
+                output = 40
+                self._http.send_datagram(self._session_id, output.to_bytes(1, 'big'))
 
     def stream_closed(self, stream_id: int) -> None:
         try:
@@ -206,7 +231,7 @@ class WebTransportProtocol(QuicConnectionProtocol):
                                 stream_id: int,
                                 request_headers: Dict[bytes, bytes]) -> None:
         assert(self._handler is None)
-        self._handler = CounterHandler(stream_id, self._http)
+        self._handler = CounterHandler(stream_id, self._http, self)
         self._send_response(stream_id, 200)
 
 

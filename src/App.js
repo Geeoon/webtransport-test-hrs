@@ -90,7 +90,7 @@ function App() {
   const [image_buffer, set_image_buffer] = useState(null);
   const [transport, set_transport] = useState(null);
   const start_video_stream = useCallback(async () => {
-    let buffer = new ArrayBuffer(1);
+    let buffer = new Uint8Array(1);
     buffer["0"] = 100;
     await writer.ready;
     await writer.write(buffer);
