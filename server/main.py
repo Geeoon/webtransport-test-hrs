@@ -78,6 +78,7 @@ import argparse
 import asyncio
 import logging
 from collections import defaultdict
+import math
 from typing import Dict, Optional
 
 from aioquic.asyncio import QuicConnectionProtocol, serve
@@ -89,8 +90,48 @@ from aioquic.quic.events import ProtocolNegotiated, StreamReset, QuicEvent
 
 BIND_ADDRESS = '::1'
 BIND_PORT = 4433
-
+packet_num = 0;
 logger = logging.getLogger(__name__)
+
+def bufferPartitioner(buffer, max):
+    output = []
+    size = math.ceil(buffer.length / max)
+    packet_num += 1
+    if (packet_num > 255):
+        packet_num = 0
+    for i in range(size):
+        sub_buffer
+"""
+function bufferPartitioner(buffer, max) { // theoreitcal max of 64k
+  let output = [];
+  const buffer_size = max;
+  let size = Math.ceil(buffer.length / buffer_size);
+  number++;
+  if (number > 255) {
+    number = 0;
+  }
+  for (let i = 0; i < size; i++) {
+    let sub_buffer = buffer.subarray(i * (buffer_size - 5), (i+1) * (buffer_size - 5));
+    let new_buffer = new Uint8Array(buffer_size);  // max is 1218
+    new_buffer["0"] = size;
+    new_buffer["1"] = i;
+    new_buffer["2"] = number;
+    new_buffer["3"] = Math.floor(buffer.length / 256);
+    new_buffer["4"] = buffer.length % 256;
+    new_buffer.set(sub_buffer, 5);
+    output.push(new_buffer);
+  }
+  return output;
+}
+
+let data_array = bufferPartitioner(sending_data, transport.datagrams.maxDatagramSize - 60);
+for (let data of data_array) {
+    await writer.ready;
+    await writer.write(data);
+}
+console.log("sent image");
+"""
+
 
 # CounterHandler implements a really simple protocol:
 #   - For every incoming bidirectional stream, it counts bytes it receives on
