@@ -102,7 +102,6 @@ logger = logging.getLogger(__name__)
 #   - For every incoming datagram, it sends a datagram with the length of
 #     datagram that was just received.
 class CounterHandler:
-
     def __init__(self, session_id, http: H3Connection) -> None:
         self._session_id = session_id
         self._http = http
@@ -110,21 +109,7 @@ class CounterHandler:
 
     def h3_event_received(self, event: H3Event) -> None:
         if isinstance(event, DatagramReceived):
-            payload = str(len(event.data)).encode('ascii')
-            self._http.send_datagram(self._session_id, payload)
-
-        if isinstance(event, WebTransportStreamDataReceived):
-            self._counters[event.stream_id] += len(event.data)
-            if event.stream_ended:
-                if stream_is_unidirectional(event.stream_id):
-                    response_id = self._http.create_webtransport_stream(
-                        self._session_id, is_unidirectional=True)
-                else:
-                    response_id = event.stream_id
-                payload = str(self._counters[event.stream_id]).encode('ascii')
-                self._http._quic.send_stream_data(
-                    response_id, payload, end_stream=True)
-                self.stream_closed(event.stream_id)
+            self._http.send_datagram(self._session_id, event.data)
 
     def stream_closed(self, stream_id: int) -> None:
         try:
@@ -137,7 +122,6 @@ class CounterHandler:
 # responses to an extended CONNECT method request, and routes the transport
 # events to a relevant handler (in this example, CounterHandler).
 class WebTransportProtocol(QuicConnectionProtocol):
-
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self._http: Optional[H3Connection] = None
@@ -173,18 +157,9 @@ class WebTransportProtocol(QuicConnectionProtocol):
     def _handshake_webtransport(self,
                                 stream_id: int,
                                 request_headers: Dict[bytes, bytes]) -> None:
-        authority = request_headers.get(b":authority")
-        path = request_headers.get(b":path")
-        if authority is None or path is None:
-            # `:authority` and `:path` must be provided.
-            self._send_response(stream_id, 400, end_stream=True)
-            return
-        if path == b"/counter":
-            assert(self._handler is None)
-            self._handler = CounterHandler(stream_id, self._http)
-            self._send_response(stream_id, 200)
-        else:
-            self._send_response(stream_id, 404, end_stream=True)
+        assert(self._handler is None)
+        self._handler = CounterHandler(stream_id, self._http)
+        self._send_response(stream_id, 200)
 
     def _send_response(self,
                        stream_id: int,
@@ -219,6 +194,7 @@ if __name__ == '__main__':
             create_protocol=WebTransportProtocol,
         ))
     try:
+        print("Listening on https://{}:{}".format(BIND_ADDRESS, BIND_PORT))
         logging.info(
             "Listening on https://{}:{}".format(BIND_ADDRESS, BIND_PORT))
         loop.run_forever()

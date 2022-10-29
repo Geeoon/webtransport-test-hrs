@@ -91,7 +91,7 @@ function App() {
 
   useEffect(() => {
     async function begin() {
-      let wt = new WebTransport('https://usa.echo.webtransport.day');
+      let wt = new WebTransport('https://localhost:4433/');
       set_reader(wt.datagrams.readable.getReader());
       set_writer(wt.datagrams.writable.getWriter());
       await wt.ready;
