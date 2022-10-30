@@ -97,14 +97,22 @@ START_STREAM = 100
 MAX_FPS = 30
 logger = logging.getLogger(__name__)
 
-def bufferPartitioner(buffer, max):
+def bufferPartitioner(buffer: bytearray, max: int, num :int):  # buffer is bytearray, max should be datagram max - 60 bytes
     output = []
-    size = math.ceil(buffer.length / max)
-    packet_num += 1
-    if (packet_num > 255):
-        packet_num = 0
+    size = math.ceil(len(buffer) / max)
+    packet_num = num
     for i in range(size):
-        sub_buffer = []
+        sub_buffer = buffer[(i * (max - 5)):((i+1) * (max - 5))]
+        new_buffer = bytearray(max)
+        new_buffer[0] = size
+        new_buffer[1] = i
+        new_buffer[2] = packet_num
+        new_buffer[3] = math.floor(len(buffer) / 256)
+        new_buffer[4] = len(buffer) % 256
+        new_buffer[5:] = sub_buffer
+        output.append(new_buffer)
+    return output
+
 """
 function bufferPartitioner(buffer, max) { // theoreitcal max of 64k
   let output = [];
@@ -149,7 +157,11 @@ class video_stream(threading.Thread):
             self._counter += 1
             if (self._counter > 255):
                 self._counter = 0
-            self._http.send_datagram(self._session_id, self._counter.to_bytes(1, 'big'))
+            temp = bytearray(1)
+            temp[0] = self._counter
+            data_array = bufferPartitioner(temp, 1028 - 60, self._counter)
+            for data in data_array:
+                self._http.send_datagram(self._session_id, data)
             self._protocol.transmit()
             time.sleep(1 / MAX_FPS)
 

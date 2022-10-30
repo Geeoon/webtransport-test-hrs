@@ -89,6 +89,7 @@ function App() {
   const [writer, set_writer] = useState(false);
   const [image_buffer, set_image_buffer] = useState(null);
   const [transport, set_transport] = useState(null);
+  const [error, set_error] = useState(null);
   const start_video_stream = useCallback(async () => {
     let buffer = new Uint8Array(1);
     buffer["0"] = 100;
@@ -97,13 +98,18 @@ function App() {
   }, [writer]);
   useEffect(() => {
     async function begin() {
-      let wt = new WebTransport('https://localhost:4433/');
-      set_reader(wt.datagrams.readable.getReader());
-      set_writer(wt.datagrams.writable.getWriter());
-      await wt.ready;
-      set_transport(wt);  // echo server
-      console.log("Connected to server.");
-      set_ready(true);
+      try {
+        let wt = new WebTransport('https://localhost:4433/');
+        await wt.ready;
+        set_reader(wt.datagrams.readable.getReader());
+        set_writer(wt.datagrams.writable.getWriter());
+        set_transport(wt);  // echo server
+        console.log("Connected to server.");
+        set_ready(true);
+      } catch (err) {
+        set_error(err.stack);
+        console.log("Error connecting to server: " + err);
+      }
     }
     begin();
   }, []);
@@ -117,18 +123,22 @@ function App() {
       let id = 0;
       let array = [];
       while (!finished) {
-        await reader.ready;
-        const {value, done} = await reader.read();
-        set_data(value);
-        console.log(value);
-        if (value["2"] > id || id - value["2"] > 100) {  // if a new image is being received, display the old
-          if (array.length > 0) {
-            set_image_buffer(bufferArrayConcat(array, transport.datagrams.maxDatagramSize - 60));
+        try {
+          await reader.ready;
+          const {value, done} = await reader.read();
+          set_data(value);
+          console.log(value);
+          if (value["2"] > id || id - value["2"] > 100) {  // if a new image is being received, display the old
+            if (array.length > 0) {
+              set_image_buffer(bufferArrayConcat(array, transport.datagrams.maxDatagramSize - 60));
+            }
+            id = value["2"];
           }
-          id = value["2"];
+          array.splice(value["1"], 1, value);
+          finished = done;
+        } catch (err) {
+          set_error(err.stack);
         }
-        array.splice(value["1"], 1, value);
-        finished = done;
       }
     }
     if (transport) {
@@ -143,7 +153,7 @@ function App() {
       let data_array = bufferPartitioner(sending_data, transport.datagrams.maxDatagramSize - 60);
       for (let data of data_array) {
         await writer.ready;
-        await writer.write(data);
+        await writer.write(data.state);
       }
       // console.log("sent image");
     }
@@ -172,10 +182,12 @@ function App() {
       // set_image_buffer(new Uint8Array(await e.target.files[0].arrayBuffer()));
     }} /><br />
     */}
-    { ready &&
+    { ready ?
     <>
-      Start video stream: <button onClick={start_video_stream}>Start!</button><br />
-    </>}
+      Start video stream: <button onClick={start_video_stream}>Start!</button>
+    </>
+    : "Not connected!!!"}<br />
+    { error && <>{ error }<br /></> }
       <img alt="Data from server concatonized" src={ image_buffer && URL.createObjectURL(new Blob([image_buffer.buffer], { type: 'image/bmp' }))}/>
     </div>
   );
