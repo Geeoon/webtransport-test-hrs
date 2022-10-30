@@ -157,12 +157,14 @@ class video_stream(threading.Thread):
             self._counter += 1
             if (self._counter > 255):
                 self._counter = 0
-            temp = bytearray(1)
-            temp[0] = self._counter
-            data_array = bufferPartitioner(temp, 1028 - 60, self._counter)
+            image = open("earthrise.jpg", "rb").read()
+            out = bytearray(image)
+
+            data_array = bufferPartitioner(out, 1024 - 60, self._counter)  # 1024 - 60 must match client or there will be mismatch
             for data in data_array:
                 self._http.send_datagram(self._session_id, data)
             self._protocol.transmit()
+            # time.sleep(1 / MAX_FPS)
             time.sleep(1 / MAX_FPS)
 
 # CounterHandler implements a really simple protocol:

@@ -90,6 +90,8 @@ function App() {
   const [image_buffer, set_image_buffer] = useState(null);
   const [transport, set_transport] = useState(null);
   const [error, set_error] = useState(null);
+  const [streaming, set_streaming] = useState(false);
+
   const start_video_stream = useCallback(async () => {
     let buffer = new Uint8Array(1);
     buffer["0"] = 100;
@@ -122,12 +124,13 @@ function App() {
       let finished = false;
       let id = 0;
       let array = [];
+      set_streaming(true);
       while (!finished) {
         try {
           await reader.ready;
           const {value, done} = await reader.read();
           set_data(value);
-          console.log(value);
+          // console.log(value);
           if (value["2"] > id || id - value["2"] > 100) {  // if a new image is being received, display the old
             if (array.length > 0) {
               set_image_buffer(bufferArrayConcat(array, transport.datagrams.maxDatagramSize - 60));
@@ -136,10 +139,13 @@ function App() {
           }
           array.splice(value["1"], 1, value);
           finished = done;
+          console.log("received data");
         } catch (err) {
           set_error(err.stack);
+          finished = true;
         }
       }
+      set_streaming(false);
     }
     if (transport) {
       begin();
@@ -187,6 +193,7 @@ function App() {
       Start video stream: <button onClick={start_video_stream}>Start!</button>
     </>
     : "Not connected!!!"}<br />
+    {}
     { error && <>{ error }<br /></> }
       <img alt="Data from server concatonized" src={ image_buffer && URL.createObjectURL(new Blob([image_buffer.buffer], { type: 'image/bmp' }))}/>
     </div>
