@@ -82,8 +82,6 @@ const sleep = ms => new Promise(
 );
 
 function App() {
-  const [data, set_data] = useState(null);
-  const [sending_data, set_sending_data] = useState(null);
   const [ready, set_ready] = useState(false);
   const [reader, set_reader] = useState(false);
   const [writer, set_writer] = useState(false);
@@ -91,6 +89,7 @@ function App() {
   const [transport, set_transport] = useState(null);
   const [error, set_error] = useState(null);
   const [streaming, set_streaming] = useState(false);
+  const [frame_num, set_frame_num] = useState(0);
 
   const start_video_stream = useCallback(async () => {
     let buffer = new Uint8Array(1);
@@ -98,6 +97,7 @@ function App() {
     await writer.ready;
     await writer.write(buffer);
   }, [writer]);
+  
   useEffect(() => {
     async function begin() {
       try {
@@ -122,24 +122,18 @@ function App() {
 
       // receiving datagram, should be similar to whats sent
       let finished = false;
-      let id = 0;
       let array = [];
       set_streaming(true);
       while (!finished) {
         try {
           await reader.ready;
           const {value, done} = await reader.read();
-          set_data(value);
-          // console.log(value);
-          if (value["2"] > id || id - value["2"] > 100) {  // if a new image is being received, display the old
-            if (array.length > 0) {
-              set_image_buffer(bufferArrayConcat(array, transport.datagrams.maxDatagramSize - 60));
-            }
-            id = value["2"];
-          }
           array.splice(value["1"], 1, value);
+          if (array.length > 0) {
+            set_image_buffer(bufferArrayConcat(array, transport.datagrams.maxDatagramSize - 60));
+          }
+          set_frame_num(value["2"]);
           finished = done;
-          console.log("received data");
         } catch (err) {
           set_error(err.stack);
           finished = true;
@@ -152,42 +146,8 @@ function App() {
     }
   }, [transport, reader]);
 
-  useEffect(() => {
-    async function begin() {
-      // sending to echo server
-      // max write size 1218
-      let data_array = bufferPartitioner(sending_data, transport.datagrams.maxDatagramSize - 60);
-      for (let data of data_array) {
-        await writer.ready;
-        await writer.write(data.state);
-      }
-      // console.log("sent image");
-    }
-    /* if (sending_data) {
-      begin();
-    } */
-    if (!sending_data) {
-      return;
-    }
-    const id = setInterval(begin, 1000 / FPS);
-    return () => clearTimeout(id);
-  }, [sending_data, writer, transport]);
-
-  useEffect(() => {  // check equivolence
-    if (image_buffer && sending_data) {
-      //console.log("Equal?: ", equal(image_buffer, sending_data));
-    }
-  }, [image_buffer, sending_data]);
-
   return (
     <div>
-    {/*
-    Image: <input type="file" id="img" accept="image/png, image/jpeg, image/bmp, image/img" onChange={ async (e) => {
-      if (!e.target.files[0]) return;
-      set_sending_data(new Uint8Array(await e.target.files[0].arrayBuffer()));
-      // set_image_buffer(new Uint8Array(await e.target.files[0].arrayBuffer()));
-    }} /><br />
-    */}
     { ready ?
     <>
       Start video stream: <button onClick={start_video_stream}>Start!</button>
@@ -195,6 +155,7 @@ function App() {
     : "Not connected!!!"}<br />
     {}
     { error && <>{ error }<br /></> }
+    Frame Number: { frame_num }<br />
       <img alt="Data from server concatonized" src={ image_buffer && URL.createObjectURL(new Blob([image_buffer.buffer], { type: 'image/bmp' }))}/>
     </div>
   );

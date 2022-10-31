@@ -94,7 +94,7 @@ from aioquic.quic.events import ProtocolNegotiated, StreamReset, QuicEvent
 BIND_ADDRESS = '::1'
 BIND_PORT = 4433
 START_STREAM = 100
-MAX_FPS = 30
+MAX_FPS = 60
 logger = logging.getLogger(__name__)
 
 def bufferPartitioner(buffer: bytearray, max: int, num :int):  # buffer is bytearray, max should be datagram max - 60 bytes
